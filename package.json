@@ -1,0 +1,19 @@
+{
+  "name": "bruschetta",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:desktop": "pnpm --filter './packages/ui/desktop' dev",
+    "lint": "pnpm --parallel --filter './packages/**' lint",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.6.5",
+  "devDependencies": {
+    "sharp": "^0.33.5",
+    "ts-node": "^10.9.2"
+  }
+}

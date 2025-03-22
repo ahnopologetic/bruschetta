@@ -1,0 +1,6 @@
+packages:
+  - packages/ui/*
+ignoredBuiltDependencies:
+  - electron
+  - electron-winstaller
+  - esbuild
