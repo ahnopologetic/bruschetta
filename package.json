@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev:desktop": "pnpm --filter './packages/ui/desktop' dev",
+    "build:mac-desktop": "pnpm --filter './packages/ui/desktop' build:mac",
     "lint": "pnpm --parallel --filter './packages/**' lint",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
