@@ -7,18 +7,55 @@ const api = {
     ipcRenderer.send('update-timer', data)
   },
   onToggleTimer: (callback: () => void) => {
-    ipcRenderer.on('toggle-timer', callback)
-    return () => ipcRenderer.removeListener('toggle-timer', callback)
+    const wrappedCallback = (_event: Electron.IpcRendererEvent) => callback()
+    ipcRenderer.on('toggle-timer', wrappedCallback)
+    return () => {
+      ipcRenderer.removeListener('toggle-timer', wrappedCallback)
+    }
   },
   onResetTimer: (callback: () => void) => {
-    ipcRenderer.on('reset-timer', callback)
-    return () => ipcRenderer.removeListener('reset-timer', callback)
+    const wrappedCallback = (_event: Electron.IpcRendererEvent) => callback()
+    ipcRenderer.on('reset-timer', wrappedCallback)
+    return () => {
+      ipcRenderer.removeListener('reset-timer', wrappedCallback)
+    }
   },
   onSetMode: (callback: (mode: 'focus' | 'break') => void) => {
-    const wrappedCallback = (_event: Electron.IpcRendererEvent, mode: 'focus' | 'break') =>
-      callback(mode)
+    const wrappedCallback = (_event: Electron.IpcRendererEvent, mode: 'focus' | 'break') => callback(mode)
     ipcRenderer.on('set-mode', wrappedCallback)
-    return () => ipcRenderer.removeListener('set-mode', wrappedCallback)
+    return () => {
+      ipcRenderer.removeListener('set-mode', wrappedCallback)
+    }
+  },
+  onRestoreTimer: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => {
+    const wrappedCallback = (_event: Electron.IpcRendererEvent, state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => callback(state)
+    ipcRenderer.on('restore-timer', wrappedCallback)
+    return () => {
+      ipcRenderer.removeListener('restore-timer', wrappedCallback)
+    }
+  },
+  onUpdateTimer: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => {
+    const wrappedCallback = (_event: Electron.IpcRendererEvent, state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => callback(state)
+    ipcRenderer.on('update-timer', wrappedCallback)
+    return () => {
+      ipcRenderer.removeListener('update-timer', wrappedCallback)
+    }
+  },
+  toggleTimer: () => {
+    ipcRenderer.send('toggle-timer')
+  },
+  resetTimer: () => {
+    ipcRenderer.send('reset-timer')
+  },
+  setMode: (mode: 'focus' | 'break') => {
+    ipcRenderer.send('set-mode', mode)
+  },
+  onTimerComplete: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => {
+    const wrappedCallback = (_event: Electron.IpcRendererEvent, state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => callback(state)
+    ipcRenderer.on('timer-complete', wrappedCallback)
+    return () => {
+      ipcRenderer.removeListener('timer-complete', wrappedCallback)
+    }
   },
   playSound: (type: 'start' | 'end') => {
     ipcRenderer.send('play-sound', type)

@@ -15,7 +15,13 @@ declare global {
       onToggleTimer: (callback: () => void) => () => void
       onResetTimer: (callback: () => void) => () => void
       onSetMode: (callback: (mode: 'focus' | 'break') => void) => () => void
+      onRestoreTimer: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => () => void
+      onTimerComplete: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => () => void
+      toggleTimer: () => void
+      resetTimer: () => void
+      setMode: (mode: 'focus' | 'break') => void
       playSound: (type: 'start' | 'end') => void
+      onUpdateTimer: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => () => void
     }
   }
 }
@@ -64,43 +70,67 @@ export default function App() {
 
   useEffect(() => {
     const unsubToggle = window.api.onToggleTimer(() => {
-      setIsRunning((prev) => !prev)
+      window.api.toggleTimer()
     })
 
-    const unsubReset = window.api.onResetTimer(handleReset)
+    const unsubReset = window.api.onResetTimer(() => {
+      window.api.resetTimer()
+    })
+
+    const unsubRestore = window.api.onRestoreTimer((state) => {
+      const [mins, secs] = state.time.split(':').map(Number)
+      setTimeLeft(mins * 60 + secs)
+      setMode(state.mode)
+      setIsRunning(state.isRunning)
+    })
+
+    const unsubComplete = window.api.onTimerComplete((state) => {
+      const [mins, secs] = state.time.split(':').map(Number)
+      setTimeLeft(mins * 60 + secs)
+      setMode(state.mode)
+      setIsRunning(state.isRunning)
+      window.api.playSound('end')
+    })
+
+    const unsubUpdate = window.api.onUpdateTimer((state) => {
+      const [mins, secs] = state.time.split(':').map(Number)
+      setTimeLeft(mins * 60 + secs)
+      setMode(state.mode)
+      setIsRunning(state.isRunning)
+    })
 
     return () => {
       unsubToggle()
       unsubReset()
+      unsubRestore()
+      unsubComplete()
+      unsubUpdate()
     }
   }, [])
 
   useEffect(() => {
     const unsubMode = window.api.onSetMode((newMode) => {
-      setMode(newMode)
-      setTimeLeft(newMode === 'focus' ? selectedFocusDuration * 60 : selectedBreakDuration * 60)
+      window.api.setMode(newMode)
     })
 
     return () => unsubMode()
-  }, [selectedFocusDuration, selectedBreakDuration])
+  }, [])
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+    const mins = Math.floor(Math.max(0, seconds) / 60)
+    const secs = Math.max(0, seconds) % 60
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   const handleReset = () => {
-    setIsRunning(false)
-    setMode('focus')
-    setTimeLeft(selectedFocusDuration * 60)
+    window.api.resetTimer()
   }
 
   const handleToggleTimer = () => {
     if (!isRunning) {
       window.api.playSound('start')
     }
-    setIsRunning(!isRunning)
+    window.api.toggleTimer()
   }
 
   return (

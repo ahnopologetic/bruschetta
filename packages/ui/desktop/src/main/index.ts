@@ -6,8 +6,20 @@ import icon from '../../resources/icon.png?asset'
 let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
 let icons: { [key: string]: Electron.NativeImage } | null = null
+let timerState: { time: string; mode: 'focus' | 'break'; isRunning: boolean } | null = null
+let timerInterval: NodeJS.Timeout | null = null
+let currentTimeLeft: number = 0
 
 function createWindow(): void {
+  // If window already exists, just show it
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.focus()
+    return
+  }
+
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 400,
@@ -27,6 +39,20 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+    // Restore timer state if it exists
+    if (timerState) {
+      mainWindow?.webContents.send('restore-timer', timerState)
+    }
+  })
+
+  mainWindow.on('close', (event) => {
+    // Prevent window from being destroyed
+    event.preventDefault()
+    mainWindow?.hide()
+  })
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -64,23 +90,39 @@ function createWindow(): void {
         {
           label: 'Start/Pause',
           accelerator: 'CommandOrControl+Enter',
-          click: () => mainWindow?.webContents.send('toggle-timer')
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('toggle-timer')
+            }
+          }
         },
         {
           label: 'Reset',
           accelerator: 'CommandOrControl+R',
-          click: () => mainWindow?.webContents.send('reset-timer')
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('reset-timer')
+            }
+          }
         },
         { type: 'separator' },
         {
           label: 'Focus Mode',
           accelerator: 'CommandOrControl+1',
-          click: () => mainWindow?.webContents.send('set-mode', 'focus')
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('set-mode', 'focus')
+            }
+          }
         },
         {
           label: 'Break Mode',
           accelerator: 'CommandOrControl+2',
-          click: () => mainWindow?.webContents.send('set-mode', 'break')
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('set-mode', 'break')
+            }
+          }
         }
       ]
     }
@@ -119,6 +161,38 @@ function playSound(type: 'start' | 'end'): void {
   `)
 }
 
+function updateTimer(): void {
+  if (!timerState?.isRunning) return
+
+  currentTimeLeft--
+  const mins = Math.floor(currentTimeLeft / 60)
+  const secs = currentTimeLeft % 60
+  const timeString = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+
+  timerState.time = timeString
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-timer', timerState)
+  }
+
+  if (currentTimeLeft <= 0) {
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
+    }
+    timerState.isRunning = false
+    if (timerState.mode === 'focus') {
+      timerState.mode = 'break'
+      currentTimeLeft = 5 * 60 // Default break time
+    } else {
+      timerState.mode = 'focus'
+      currentTimeLeft = 25 * 60 // Default focus time
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('timer-complete', timerState)
+    }
+  }
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -146,8 +220,13 @@ app.whenReady().then(() => {
 
   // Handle timer updates from renderer
   ipcMain.on('update-timer', (_event, { time, mode, isRunning }) => {
+    // Store timer state
+    timerState = { time, mode, isRunning }
+    // Update currentTimeLeft based on the time string
+    const [mins, secs] = time.split(':').map(Number)
+    currentTimeLeft = mins * 60 + secs
+    
     if (tray && icons) {
-      // Add null check for icons
       if (process.platform === 'darwin') {
         tray.setTitle(time, {
           fontType: 'monospaced'
@@ -162,13 +241,31 @@ app.whenReady().then(() => {
       const contextMenu = Menu.buildFromTemplate([
         { label: `${mode === 'focus' ? 'Focus' : 'Break'} - ${isRunning ? 'Running' : 'Paused'}` },
         { type: 'separator' },
-        { label: 'Show App', click: () => mainWindow?.show() },
+        { 
+          label: 'Show App', 
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.show()
+            }
+          }
+        },
         { type: 'separator' },
         {
           label: isRunning ? 'Pause' : 'Start',
-          click: () => mainWindow?.webContents.send('toggle-timer')
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('toggle-timer')
+            }
+          }
         },
-        { label: 'Reset', click: () => mainWindow?.webContents.send('reset-timer') },
+        { 
+          label: 'Reset', 
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('reset-timer')
+            }
+          }
+        },
         { type: 'separator' },
         { label: 'Quit', click: () => app.quit() }
       ])
@@ -176,10 +273,69 @@ app.whenReady().then(() => {
     }
   })
 
+  // Handle timer control from renderer
+  ipcMain.on('toggle-timer', () => {
+    if (!timerState) return
+    timerState.isRunning = !timerState.isRunning
+    
+    // Update currentTimeLeft if not already set
+    if (currentTimeLeft <= 0) {
+      currentTimeLeft = timerState.mode === 'focus' ? 25 * 60 : 5 * 60
+    }
+    
+    if (timerState.isRunning) {
+      if (!timerInterval) {
+        timerInterval = setInterval(updateTimer, 1000)
+      }
+    } else {
+      if (timerInterval) {
+        clearInterval(timerInterval)
+        timerInterval = null
+      }
+    }
+  })
+
+  ipcMain.on('reset-timer', () => {
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
+    }
+    if (timerState) {
+      timerState.isRunning = false
+      timerState.mode = 'focus'
+      currentTimeLeft = 25 * 60 // Default focus time
+      const mins = Math.floor(currentTimeLeft / 60)
+      const secs = currentTimeLeft % 60
+      timerState.time = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-timer', timerState)
+      }
+    }
+  })
+
+  ipcMain.on('set-mode', (_event, mode: 'focus' | 'break') => {
+    if (!timerState) return
+    timerState.mode = mode
+    currentTimeLeft = mode === 'focus' ? 25 * 60 : 5 * 60 // Default durations
+    const mins = Math.floor(currentTimeLeft / 60)
+    const secs = currentTimeLeft % 60
+    timerState.time = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-timer', timerState)
+    }
+  })
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+      }
+      mainWindow.focus()
+    } else {
+      createWindow()
+    }
   })
 })
 
@@ -189,6 +345,18 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+// Handle quit properly
+app.on('before-quit', () => {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
+  if (mainWindow) {
+    mainWindow.destroy()
+    mainWindow = null
   }
 })
 
