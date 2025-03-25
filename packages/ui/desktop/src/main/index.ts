@@ -1,5 +1,5 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray, Notification } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 
@@ -9,6 +9,10 @@ let icons: { [key: string]: Electron.NativeImage } | null = null
 let timerState: { time: string; mode: 'focus' | 'break'; isRunning: boolean } | null = null
 let timerInterval: NodeJS.Timeout | null = null
 let currentTimeLeft: number = 0
+// const defaultFocusTime = 25 * 60
+// const defaultBreakTime = 5 * 60
+const defaultFocusTime = process.env.NODE_ENV === 'development' ? 1 * 60 : 25 * 60
+const defaultBreakTime = process.env.NODE_ENV === 'development' ? 0.1 * 60 : 5 * 60
 
 function createWindow(): void {
   // If window already exists, just show it
@@ -112,6 +116,7 @@ function createWindow(): void {
           accelerator: 'CommandOrControl+1',
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('toggle-timer')
               mainWindow.webContents.send('set-mode', 'focus')
             }
           }
@@ -121,6 +126,7 @@ function createWindow(): void {
           accelerator: 'CommandOrControl+2',
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('toggle-timer')
               mainWindow.webContents.send('set-mode', 'break')
             }
           }
@@ -131,6 +137,15 @@ function createWindow(): void {
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.openDevTools()
+            }
+          }
+        },
+        {
+          label: 'Minimize to tray',
+          accelerator: 'CommandOrControl+M',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.hide()
             }
           }
         }
@@ -147,11 +162,11 @@ function createTray(): void {
   const iconPath = join(__dirname, '../../resources')
   icons = {
     default: nativeImage.createFromPath(join(iconPath, 'icon.png')),
-    focus: nativeImage.createFromPath(join(iconPath, 'icon-focus.png')),
-    break: nativeImage.createFromPath(join(iconPath, 'icon-break.png'))
+    // focus: nativeImage.createFromPath(join(iconPath, 'icon-focus.png')),
+    // break: nativeImage.createFromPath(join(iconPath, 'icon-break.png'))
   }
 
-  tray = new Tray(icons.default.resize({ width: 16, height: 16 }))
+  tray = new Tray(icons.default.resize({ width: 32, height: 32 }))
 
   // Use monospaced font for timer
   if (process.platform === 'darwin') {
@@ -195,7 +210,7 @@ function updateTimer(): void {
       currentTimeLeft = 5 * 60 // Default break time
     } else {
       timerState.mode = 'focus'
-      currentTimeLeft = 25 * 60 // Default focus time
+      currentTimeLeft = defaultFocusTime
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('timer-complete', timerState)
@@ -235,7 +250,7 @@ app.whenReady().then(() => {
     // Update currentTimeLeft based on the time string
     const [mins, secs] = time.split(':').map(Number)
     currentTimeLeft = mins * 60 + secs
-    
+
     if (tray && icons) {
       if (process.platform === 'darwin') {
         tray.setTitle(time, {
@@ -251,8 +266,8 @@ app.whenReady().then(() => {
       const contextMenu = Menu.buildFromTemplate([
         { label: `${mode === 'focus' ? 'Focus' : 'Break'} - ${isRunning ? 'Running' : 'Paused'}` },
         { type: 'separator' },
-        { 
-          label: 'Show App', 
+        {
+          label: 'Show App',
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.show()
@@ -268,8 +283,8 @@ app.whenReady().then(() => {
             }
           }
         },
-        { 
-          label: 'Reset', 
+        {
+          label: 'Reset',
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('reset-timer')
@@ -287,12 +302,12 @@ app.whenReady().then(() => {
   ipcMain.on('toggle-timer', () => {
     if (!timerState) return
     timerState.isRunning = !timerState.isRunning
-    
+
     // Update currentTimeLeft if not already set
     if (currentTimeLeft <= 0) {
-      currentTimeLeft = timerState.mode === 'focus' ? 25 * 60 : 5 * 60
+      currentTimeLeft = timerState.mode === 'focus' ? defaultFocusTime : defaultBreakTime
     }
-    
+
     if (timerState.isRunning) {
       if (!timerInterval) {
         timerInterval = setInterval(updateTimer, 1000)
@@ -313,7 +328,7 @@ app.whenReady().then(() => {
     if (timerState) {
       timerState.isRunning = false
       timerState.mode = 'focus'
-      currentTimeLeft = 25 * 60 // Default focus time
+      currentTimeLeft = defaultFocusTime
       const mins = Math.floor(currentTimeLeft / 60)
       const secs = currentTimeLeft % 60
       timerState.time = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
@@ -326,12 +341,32 @@ app.whenReady().then(() => {
   ipcMain.on('set-mode', (_event, mode: 'focus' | 'break') => {
     if (!timerState) return
     timerState.mode = mode
-    currentTimeLeft = mode === 'focus' ? 25 * 60 : 5 * 60 // Default durations
+    currentTimeLeft = mode === 'focus' ? defaultFocusTime : defaultBreakTime
     const mins = Math.floor(currentTimeLeft / 60)
     const secs = currentTimeLeft % 60
     timerState.time = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-timer', timerState)
+    }
+  })
+
+  ipcMain.on('show-notification', (_event, title: string, message: string) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const notification = new Notification({
+        title,
+        body: message,
+        icon: join(__dirname, '../../resources/icon.png'),
+        actions: [{
+          type: 'button',
+          text: 'OK',
+        },
+        {
+          type: 'button',
+          text: 'Restart',
+        },
+        ],
+      })
+      notification.show()
     }
   })
 

@@ -50,6 +50,9 @@ const api = {
   setMode: (mode: 'focus' | 'break') => {
     ipcRenderer.send('set-mode', mode)
   },
+  showNotification: (title: string, message: string) => {
+    ipcRenderer.send('show-notification', title, message)
+  },
   onTimerComplete: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => {
     const wrappedCallback = (_event: Electron.IpcRendererEvent, state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => callback(state)
     ipcRenderer.on('timer-complete', wrappedCallback)

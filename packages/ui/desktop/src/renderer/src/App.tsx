@@ -15,19 +15,32 @@ declare global {
       onToggleTimer: (callback: () => void) => () => void
       onResetTimer: (callback: () => void) => () => void
       onSetMode: (callback: (mode: 'focus' | 'break') => void) => () => void
-      onRestoreTimer: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => () => void
-      onTimerComplete: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => () => void
+      onRestoreTimer: (
+        callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void
+      ) => () => void
+      onTimerComplete: (
+        callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void
+      ) => () => void
       toggleTimer: () => void
       resetTimer: () => void
       setMode: (mode: 'focus' | 'break') => void
       playSound: (type: 'start' | 'end') => void
-      onUpdateTimer: (callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void) => () => void
+      onUpdateTimer: (
+        callback: (state: { time: string; mode: 'focus' | 'break'; isRunning: boolean }) => void
+      ) => () => void
+      showNotification: (title: string, message: string) => void
     }
   }
 }
 
-const FOCUS_DURATIONS = [25, 30, 45, 50, 55]
-const BREAK_DURATIONS = [5, 10, 15]
+// const FOCUS_DURATIONS = [25, 30, 45, 50, 55]
+// const BREAK_DURATIONS = [5, 10, 15]
+
+// For development
+const FOCUS_DURATIONS =
+  process.env.NODE_ENV === 'development' ? [1, 2, 3, 4, 5] : [25, 30, 45, 50, 55]
+const BREAK_DURATIONS =
+  process.env.NODE_ENV === 'development' ? [0.1, 0.2, 0.3, 0.4, 0.5] : [5, 10, 15]
 
 export default function App() {
   const [isRunning, setIsRunning] = useState(false)
@@ -44,6 +57,7 @@ export default function App() {
         setTimeLeft((time) => time - 1)
       }, 1000)
     } else if (timeLeft === 0) {
+      window.api.showNotification('Bruschetta', 'Time is up!')
       window.api.playSound('end')
       if (mode === 'focus') {
         setMode('break')
@@ -136,13 +150,16 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen">
       {/* Draggable region */}
-      <div className="h-8 -webkit-app-region-drag bg-background/80 backdrop-blur-sm" />
-      
+      <div className="h-16 -webkit-app-region-drag bg-background/80 backdrop-blur-sm" />
+
       {/* Main content */}
       <div className="flex-1 p-4">
         <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
           <div className="w-full max-w-md space-y-8">
             <div className="text-center space-y-4">
+              {process.env.NODE_ENV === 'development' && (
+                <span className="text-sm text-muted-foreground">DEV MODE</span>
+              )}
               <h1 className="text-4xl font-bold">Bruschetta</h1>
               <div className="text-6xl font-mono">{formatTime(timeLeft)}</div>
 
