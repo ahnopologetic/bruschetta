@@ -180,9 +180,8 @@ function createTray(): void {
 function playSound(type: 'start' | 'end'): void {
   if (!mainWindow) return
 
-  const soundPath = join(__dirname, '../../resources/sounds', `${type}.mp3`)
   mainWindow.webContents.executeJavaScript(`
-    new Audio('file://${soundPath}').play().catch(err => console.error('Failed to play sound:', err));
+    new Audio('https://github.com/ahnopologetic/bruschetta/releases/download/v1.0.0-rc1/${type}.mp3').play().catch(err => console.error('Failed to play sound:', err));
   `)
 }
 
