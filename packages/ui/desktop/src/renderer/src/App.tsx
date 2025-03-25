@@ -134,70 +134,78 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold">Bruschetta</h1>
-          <div className="text-6xl font-mono">{formatTime(timeLeft)}</div>
+    <div className="flex flex-col h-screen">
+      {/* Draggable region */}
+      <div className="h-8 -webkit-app-region-drag bg-background/80 backdrop-blur-sm" />
+      
+      {/* Main content */}
+      <div className="flex-1 p-4">
+        <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-md space-y-8">
+            <div className="text-center space-y-4">
+              <h1 className="text-4xl font-bold">Bruschetta</h1>
+              <div className="text-6xl font-mono">{formatTime(timeLeft)}</div>
 
-          <div className="flex gap-4 justify-center">
-            <Select
-              value={selectedFocusDuration.toString()}
-              onValueChange={(value) => {
-                const duration = parseInt(value)
-                setSelectedFocusDuration(duration)
-                if (mode === 'focus' && !isRunning) {
-                  setTimeLeft(duration * 60)
-                }
-              }}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Focus duration" />
-              </SelectTrigger>
-              <SelectContent>
-                {FOCUS_DURATIONS.map((duration) => (
-                  <SelectItem key={duration} value={duration.toString()}>
-                    {duration} min
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="flex gap-4 justify-center">
+                <Select
+                  value={selectedFocusDuration.toString()}
+                  onValueChange={(value) => {
+                    const duration = parseInt(value)
+                    setSelectedFocusDuration(duration)
+                    if (mode === 'focus' && !isRunning) {
+                      setTimeLeft(duration * 60)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Focus duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FOCUS_DURATIONS.map((duration) => (
+                      <SelectItem key={duration} value={duration.toString()}>
+                        {duration} min
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Select
-              value={selectedBreakDuration.toString()}
-              onValueChange={(value) => {
-                const duration = parseInt(value)
-                setSelectedBreakDuration(duration)
-                if (mode === 'break' && !isRunning) {
-                  setTimeLeft(duration * 60)
-                }
-              }}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Break duration" />
-              </SelectTrigger>
-              <SelectContent>
-                {BREAK_DURATIONS.map((duration) => (
-                  <SelectItem key={duration} value={duration.toString()}>
-                    {duration} min
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select
+                  value={selectedBreakDuration.toString()}
+                  onValueChange={(value) => {
+                    const duration = parseInt(value)
+                    setSelectedBreakDuration(duration)
+                    if (mode === 'break' && !isRunning) {
+                      setTimeLeft(duration * 60)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Break duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BREAK_DURATIONS.map((duration) => (
+                      <SelectItem key={duration} value={duration.toString()}>
+                        {duration} min
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-4 justify-center">
+                <Button size="lg" onClick={handleToggleTimer}>
+                  {isRunning ? '⏸️ Pause' : '👍 Start'}
+                </Button>
+                <Button size="lg" variant="outline" onClick={handleReset}>
+                  ↪️ Reset
+                </Button>
+              </div>
+
+              {/* <div className="text-sm text-muted-foreground">
+                {mode === 'focus' ? 'Focus Session' : 'Break Time'}
+              </div> */}
+            </div>
           </div>
-
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" onClick={handleToggleTimer}>
-              {isRunning ? '⏸️ Pause' : '👍 Start'}
-            </Button>
-            <Button size="lg" variant="outline" onClick={handleReset}>
-              ↪️ Reset
-            </Button>
-          </div>
-
-          {/* <div className="text-sm text-muted-foreground">
-            {mode === 'focus' ? 'Focus Session' : 'Break Time'}
-          </div> */}
         </div>
       </div>
     </div>

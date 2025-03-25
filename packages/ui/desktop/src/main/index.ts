@@ -30,6 +30,7 @@ function createWindow(): void {
     titleBarStyle: 'hiddenInset',
     vibrancy: 'under-window',
     visualEffectState: 'active',
+    resizable: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -121,6 +122,15 @@ function createWindow(): void {
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('set-mode', 'break')
+            }
+          }
+        },
+        {
+          label: 'Show devtools',
+          accelerator: 'CommandOrControl+I',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.openDevTools()
             }
           }
         }
